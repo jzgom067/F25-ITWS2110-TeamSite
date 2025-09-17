@@ -66,6 +66,16 @@ main {
     padding: 0 1rem;
 }
 
+.logo {
+    max-width: 5rem;
+    margin: 0 auto;
+}
+
+.logo-img {
+    max-height: 100%;
+    max-width: 100%;
+}
+
 .button {
     background-color: #C9A0DC;
     color: #111003;

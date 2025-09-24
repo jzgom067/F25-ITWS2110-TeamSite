@@ -2,6 +2,8 @@
 
 ## Aliza Syed
 
+I annotated the Fourth, Fifth, and Sixth Amendments to the U.S. Constitution. These annotations break down the legal language into easy-to-understand explanations that show how each amendment protects individual rights in everyday situations.
+
 ## Braden Lam
 
 ## Ethan Kusse

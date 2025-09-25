@@ -6,7 +6,7 @@ I annotated the Fourth, Fifth, and Sixth Amendments to the U.S. Constitution. Th
 
 ## Braden Lam
 
-I annotated the Seventh, Eighth, Ninth, and Tenth amendments to the constitution. The annotations I made explain what the amendment does in simpler terms, and how it can impact people.
+I annotated the Seventh, Eighth, Ninth, and Tenth amendments to the constitution. The annotations I made explain what the amendment does in simpler terms, and how it can impact people. A struggle I encountered was trying to figure out what some of these amendments were even saying, but a little bit of research clarified everything and helped me explain everything.
 
 ## Ethan Kusse
 

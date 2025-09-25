@@ -6,6 +6,8 @@ I annotated the Fourth, Fifth, and Sixth Amendments to the U.S. Constitution. Th
 
 ## Braden Lam
 
+I annotated the Seventh, Eighth, Ninth, and Tenth amendments to the constitution. The annotations I made explain what the amendment does in simpler terms, and how it can impact people.
+
 ## Ethan Kusse
 
 I created the basic HTML structure of how each of the articles, amendments, and sections would appear in on the website. A struggle I encountered was the sheer mass of dividing up the content, but this was overcome with smart copy/pasting. I also contributed to the annotations of the sections.

@@ -1,4 +1,4 @@
-# Team 15 Lab 2 README Reflections 
+# Team 15 Lab 2 README Reflections
 
 ## Aliza Syed
 
@@ -15,3 +15,5 @@ I created the basic HTML structure of how each of the articles, amendments, and 
 My contributions included adding all the annotations to the articles. I think the biggest struggle was understanding some of the confusing language used, but for the most part I think it's pretty straightforward. Some research was helpful to clarify some of the meanings and original intentions from when the Constitution was written.
 
 ## Gavin Liu
+
+My main contribution to this lab was adding in the History of the constitution. While it was slightly difficult to find ways to summarize all of it into small sections, I figured it out eventually. Obviously, some research was needed, but I think it turned out well. Another struggle was mainly divvying up the work, but we ended up figuring it out in the end.

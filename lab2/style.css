@@ -1,0 +1,51 @@
+.layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1rem;
+}
+.sidebar {
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+}
+.sidebar .group-title {
+    font-weight: bold;
+    margin: 0.5rem 0;
+}
+.nav-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+.nav-list button {
+    all: unset;
+    background-color: #C9A0DC;
+    color: #111003;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    text-align: center;
+    cursor: pointer;
+    font-weight: bold;
+}
+.nav-list button:hover,
+.nav-list button[aria-current="true"] {
+    background-color: #111003;
+    color: #FFFFFF;
+}
+.content header h2 {
+    margin-bottom: 0.25rem;
+}
+.content .meta {
+    color: #555;
+    margin-bottom: 1rem;
+}
+.section-block {
+    margin-bottom: 1rem;
+}
+.section-block h3 {
+    margin-bottom: 0.25rem;
+}
+.section-block p + p {
+    margin-top: 0.5rem;
+}

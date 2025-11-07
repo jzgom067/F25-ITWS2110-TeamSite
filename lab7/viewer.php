@@ -3,49 +3,44 @@
 require_once 'db_connect.php';
 
 $selectedType = isset($_GET['type']) ? $_GET['type'] : '';
-$selectedIndex = isset($_GET['index']) ? intval($_GET['index']) : -1;
-$selectedCourse = isset($_GET['course']) ? intval($_GET['course']) : -1;
+$selectedKey = isset($_GET['key']) ? $_GET['key'] : '';
 $syncSuccess = isset($_GET['sync']) && $_GET['sync'] === 'success';
 $error = isset($_GET['error']) ? $_GET['error'] : '';
 $errorMsg = isset($_GET['msg']) ? $_GET['msg'] : '';
 
-$courses = [];
+$courseContent = null;
 $previewData = null;
+$lectures = [];
+$labs = [];
 
 if (isset($conn)) {
-    // Fetch courses with their JSON content from database
-    $sql = "SELECT crn, prefix, number, title, course_content FROM courses WHERE course_content IS NOT NULL ORDER BY crn";
+    // Fetch websys course (ITWS 2110) from database
+    $sql = "SELECT course_content FROM courses WHERE prefix = 'ITWS' AND number = 2110 AND course_content IS NOT NULL LIMIT 1";
     $result = $conn->query($sql);
     
     if ($result && $result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $content = json_decode($row['course_content'], true);
-            if ($content) {
-                $courses[] = [
-                    'crn' => $row['crn'],
-                    'prefix' => $row['prefix'],
-                    'number' => $row['number'],
-                    'title' => $row['title'],
-                    'content' => $content
-                ];
+        $row = $result->fetch_assoc();
+        $content = json_decode($row['course_content'], true);
+        
+        if ($content && isset($content['websys_course']) && is_array($content['websys_course']) && count($content['websys_course']) > 0) {
+            $courseContent = $content['websys_course'][0];
+            
+            // Extract lectures and labs
+            if (isset($courseContent['lectures']) && is_array($courseContent['lectures'])) {
+                $lectures = $courseContent['lectures'];
             }
-        }
-    }
-    
-    // Get preview data if item is selected
-    if ($selectedCourse >= 0 && $selectedCourse < count($courses) && 
-        $selectedType && $selectedIndex >= 0) {
-        $course = $courses[$selectedCourse];
-        if ($selectedType === 'lecture' && isset($course['content']['lectures'][$selectedIndex])) {
-            $previewData = [
-                'label' => 'Lecture ' . ($selectedIndex + 1),
-                'item' => $course['content']['lectures'][$selectedIndex]
-            ];
-        } elseif ($selectedType === 'lab' && isset($course['content']['labs'][$selectedIndex])) {
-            $previewData = [
-                'label' => 'Lab ' . ($selectedIndex + 1),
-                'item' => $course['content']['labs'][$selectedIndex]
-            ];
+            if (isset($courseContent['labs']) && is_array($courseContent['labs'])) {
+                $labs = $courseContent['labs'];
+            }
+            
+            // Get preview data if item is selected
+            if ($selectedType && $selectedKey) {
+                if ($selectedType === 'lecture' && isset($lectures[$selectedKey])) {
+                    $previewData = $lectures[$selectedKey];
+                } elseif ($selectedType === 'lab' && isset($labs[$selectedKey])) {
+                    $previewData = $labs[$selectedKey];
+                }
+            }
         }
     }
 }
@@ -87,66 +82,60 @@ if (isset($conn)) {
     <div class="container">
         <div class="nav-panel">
             <h2>Course Content</h2>
-            <form method="POST" action="sync_api.php" style="display: inline;" onsubmit="return confirm('Sync JSON file to database? This will update all course content.');">
-                <button type="submit" name="sync">Sync from JSON</button>
+            <form method="POST" action="sync_api.php" style="display: inline-block; margin-bottom: 15px;" onsubmit="return confirm('Refresh content from JSON file? This will update the database.');">
+                <button type="submit" name="sync">Refresh from JSON</button>
             </form>
             <ul id="contentList">
                 <?php if (!isset($conn)): ?>
                     <li>Database connection not found</li>
-                <?php elseif (empty($courses)): ?>
-                    <li>No course content available. Click "Sync from JSON" to load data.</li>
+                <?php elseif ($courseContent === null): ?>
+                    <li>No course content available. Click "Refresh from JSON" to load data.</li>
                 <?php else: ?>
-                    <?php foreach ($courses as $courseIndex => $course): ?>
+                    <?php if (!empty($lectures)): ?>
                         <li>
-                            <strong><?php echo htmlspecialchars($course['prefix'] . $course['number'] . ': ' . $course['title']); ?></strong>
+                            <strong>Lectures</strong>
                             <ul>
-                                <?php if (isset($course['content']['lectures']) && is_array($course['content']['lectures']) && count($course['content']['lectures']) > 0): ?>
+                                <?php foreach ($lectures as $key => $lecture): ?>
                                     <li>
-                                        <strong>Lectures</strong>
-                                        <ul>
-                                            <?php foreach ($course['content']['lectures'] as $lectureIndex => $lecture): ?>
-                                                <li>
-                                                    <a href="?course=<?php echo $courseIndex; ?>&type=lecture&index=<?php echo $lectureIndex; ?>">
-                                                        Lecture <?php echo $lectureIndex + 1; ?>
-                                                    </a>
-                                                </li>
-                                            <?php endforeach; ?>
-                                        </ul>
+                                        <a href="?type=lecture&key=<?php echo urlencode($key); ?>" 
+                                           class="<?php echo ($selectedType === 'lecture' && $selectedKey === $key) ? 'active' : ''; ?>">
+                                            <?php echo htmlspecialchars(isset($lecture['title']) ? $lecture['title'] : $key); ?>
+                                        </a>
                                     </li>
-                                <?php endif; ?>
-                                
-                                <?php if (isset($course['content']['labs']) && is_array($course['content']['labs']) && count($course['content']['labs']) > 0): ?>
-                                    <li>
-                                        <strong>Labs</strong>
-                                        <ul>
-                                            <?php foreach ($course['content']['labs'] as $labIndex => $lab): ?>
-                                                <li>
-                                                    <a href="?course=<?php echo $courseIndex; ?>&type=lab&index=<?php echo $labIndex; ?>">
-                                                        Lab <?php echo $labIndex + 1; ?>
-                                                    </a>
-                                                </li>
-                                            <?php endforeach; ?>
-                                        </ul>
-                                    </li>
-                                <?php endif; ?>
+                                <?php endforeach; ?>
                             </ul>
                         </li>
-                    <?php endforeach; ?>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($labs)): ?>
+                        <li>
+                            <strong>Labs</strong>
+                            <ul>
+                                <?php foreach ($labs as $key => $lab): ?>
+                                    <li>
+                                        <a href="?type=lab&key=<?php echo urlencode($key); ?>" 
+                                           class="<?php echo ($selectedType === 'lab' && $selectedKey === $key) ? 'active' : ''; ?>">
+                                            <?php echo htmlspecialchars(isset($lab['title']) ? $lab['title'] : $key); ?>
+                                        </a>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </li>
+                    <?php endif; ?>
                 <?php endif; ?>
             </ul>
         </div>
         <div class="preview-panel">
             <div id="preview">
                 <?php if ($previewData): ?>
-                    <h3><?php echo htmlspecialchars($previewData['label']); ?></h3>
-                    <?php if (isset($previewData['item']['title'])): ?>
-                        <p><strong>Title:</strong> <?php echo htmlspecialchars($previewData['item']['title']); ?></p>
+                    <?php if (isset($previewData['title'])): ?>
+                        <h3><?php echo htmlspecialchars($previewData['title']); ?></h3>
                     <?php endif; ?>
-                    <?php if (isset($previewData['item']['description'])): ?>
-                        <p><strong>Description:</strong> <?php echo htmlspecialchars($previewData['item']['description']); ?></p>
+                    <?php if (isset($previewData['description'])): ?>
+                        <p><strong>Description:</strong> <?php echo htmlspecialchars($previewData['description']); ?></p>
                     <?php endif; ?>
-                    <?php if (isset($previewData['item']['material'])): ?>
-                        <p><strong>Material:</strong> <?php echo htmlspecialchars($previewData['item']['material']); ?></p>
+                    <?php if (isset($previewData['material'])): ?>
+                        <p><strong>Material:</strong> <?php echo htmlspecialchars($previewData['material']); ?></p>
                     <?php endif; ?>
                 <?php else: ?>
                     <p>Select an item from the navigation to view details.</p>

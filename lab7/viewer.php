@@ -25,20 +25,20 @@ if (isset($conn)) {
         if ($content && isset($content['websys_course']) && is_array($content['websys_course']) && count($content['websys_course']) > 0) {
             $courseContent = $content['websys_course'][0];
             
-            // Extract lectures and labs
-            if (isset($courseContent['lectures']) && is_array($courseContent['lectures'])) {
-                $lectures = $courseContent['lectures'];
+            // Extract lectures and labs (they are objects, not arrays)
+            if (isset($courseContent['lectures']) && (is_array($courseContent['lectures']) || is_object($courseContent['lectures']))) {
+                $lectures = (array)$courseContent['lectures'];
             }
-            if (isset($courseContent['labs']) && is_array($courseContent['labs'])) {
-                $labs = $courseContent['labs'];
+            if (isset($courseContent['labs']) && (is_array($courseContent['labs']) || is_object($courseContent['labs']))) {
+                $labs = (array)$courseContent['labs'];
             }
             
             // Get preview data if item is selected
             if ($selectedType && $selectedKey) {
                 if ($selectedType === 'lecture' && isset($lectures[$selectedKey])) {
-                    $previewData = $lectures[$selectedKey];
+                    $previewData = (array)$lectures[$selectedKey];
                 } elseif ($selectedType === 'lab' && isset($labs[$selectedKey])) {
-                    $previewData = $labs[$selectedKey];
+                    $previewData = (array)$labs[$selectedKey];
                 }
             }
         }
@@ -95,14 +95,23 @@ if (isset($conn)) {
                         <li>
                             <strong>Lectures</strong>
                             <ul>
-                                <?php foreach ($lectures as $key => $lecture): ?>
+                                <?php 
+                                // Sort lectures by key to maintain order (lecture1, lecture2, etc.)
+                                ksort($lectures);
+                                foreach ($lectures as $key => $lecture): 
+                                    if (is_array($lecture) || is_object($lecture)):
+                                        $lecture = (array)$lecture;
+                                ?>
                                     <li>
                                         <a href="?type=lecture&key=<?php echo urlencode($key); ?>" 
                                            class="<?php echo ($selectedType === 'lecture' && $selectedKey === $key) ? 'active' : ''; ?>">
-                                            <?php echo htmlspecialchars(isset($lecture['title']) ? $lecture['title'] : $key); ?>
+                                            <?php echo htmlspecialchars(isset($lecture['title']) ? $lecture['title'] : ucfirst(str_replace('_', ' ', $key))); ?>
                                         </a>
                                     </li>
-                                <?php endforeach; ?>
+                                <?php 
+                                    endif;
+                                endforeach; 
+                                ?>
                             </ul>
                         </li>
                     <?php endif; ?>
@@ -111,14 +120,23 @@ if (isset($conn)) {
                         <li>
                             <strong>Labs</strong>
                             <ul>
-                                <?php foreach ($labs as $key => $lab): ?>
+                                <?php 
+                                // Sort labs by key to maintain order (lab1, lab2, etc.)
+                                ksort($labs);
+                                foreach ($labs as $key => $lab): 
+                                    if (is_array($lab) || is_object($lab)):
+                                        $lab = (array)$lab;
+                                ?>
                                     <li>
                                         <a href="?type=lab&key=<?php echo urlencode($key); ?>" 
                                            class="<?php echo ($selectedType === 'lab' && $selectedKey === $key) ? 'active' : ''; ?>">
-                                            <?php echo htmlspecialchars(isset($lab['title']) ? $lab['title'] : $key); ?>
+                                            <?php echo htmlspecialchars(isset($lab['title']) ? $lab['title'] : ucfirst(str_replace('_', ' ', $key))); ?>
                                         </a>
                                     </li>
-                                <?php endforeach; ?>
+                                <?php 
+                                    endif;
+                                endforeach; 
+                                ?>
                             </ul>
                         </li>
                     <?php endif; ?>

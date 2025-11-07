@@ -1,0 +1,19 @@
+body { margin: 20px; }
+.form-group { margin: 10px 0; }
+label { display: block; }
+input { padding: 5px; }
+button, .btn-secondary { padding: 5px 10px; margin: 5px 5px 5px 0; }
+.message { margin: 10px 0; padding: 5px; border: 1px solid; white-space: pre-line; }
+.example { font-family: monospace; white-space: pre; }
+.button-group { margin: 10px 0; }
+
+.container { display: flex; }
+.nav-panel { width: 250px; margin-right: 20px; }
+.nav-panel ul { list-style: none; padding: 0; }
+.nav-panel ul ul { margin-left: 15px; padding-left: 15px; border-left: 1px solid #ccc; }
+.nav-panel li { margin: 5px 0; }
+.nav-panel a { text-decoration: none; color: #000; }
+.nav-panel a:hover { text-decoration: underline; }
+.preview-panel { flex: 1; }
+.preview-panel h3 { margin-top: 0; }
+

@@ -164,6 +164,19 @@ $errorMsg = isset($_GET['msg']) ? $_GET['msg'] : '';
     </script>
 </head>
 <body>
+    <div class="halloween-header">
+        <div class="halloween-decoration">
+            <img src="images/pumpkin.png" alt="Pumpkin">
+            <img src="images/ghost.png" alt="Ghost">
+            <img src="images/bat.png" alt="Bat">
+        </div>
+        <h1>🎃 Spooky Course Content 🎃</h1>
+        <div class="halloween-decoration">
+            <img src="images/spider.png" alt="Spider">
+            <img src="images/ghost.png" alt="Ghost">
+            <img src="images/pumpkin.png" alt="Pumpkin">
+        </div>
+    </div>
     <div>
         <a href="reset.php">Reset Tables</a>
     </div>

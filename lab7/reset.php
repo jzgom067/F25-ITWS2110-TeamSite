@@ -64,7 +64,14 @@ function recreateTables($conn) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reset Database Tables</title>
     <link rel="stylesheet" href="style.css">
-    <script src="script.js"></script>
+    <script>
+        function confirmDrop() {
+            return confirm('Are you sure you want to drop all tables? This cannot be undone!');
+        }
+        function confirmRecreate() {
+            return confirm('Are you sure you want to drop and recreate all tables? This will delete all data!');
+        }
+    </script>
 </head>
 <body>
     <h1>Database Table Management</h1>

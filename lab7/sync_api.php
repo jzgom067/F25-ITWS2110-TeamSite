@@ -4,14 +4,14 @@ require_once 'db_connect.php';
 require_once 'archive.php';
 
 if (!isset($conn)) {
-    header('Location: viewer.php?error=db_connection');
+    header('Location: index.php?error=db_connection');
     exit;
 }
 
 $jsonFile = 'course_content.json';
 
 if (!file_exists($jsonFile)) {
-    header('Location: viewer.php?error=file_not_found');
+    header('Location: index.php?error=file_not_found');
     exit;
 }
 
@@ -19,7 +19,7 @@ $jsonData = file_get_contents($jsonFile);
 $data = json_decode($jsonData, true);
 
 if (json_last_error() !== JSON_ERROR_NONE) {
-    header('Location: viewer.php?error=json_parse');
+    header('Location: index.php?error=json_parse');
     exit;
 }
 
@@ -62,15 +62,15 @@ if (isset($data['websys_course']) && is_array($data['websys_course']) && count($
         
         if ($stmt->execute()) {
             $stmt->close();
-            header('Location: viewer.php?sync=success');
+            header('Location: index.php?sync=success');
             exit;
         } else {
             $stmt->close();
-            header('Location: viewer.php?error=sync_failed&msg=' . urlencode($conn->error));
+            header('Location: index.php?error=sync_failed&msg=' . urlencode($conn->error));
             exit;
         }
     } else {
-        header('Location: viewer.php?error=sync_failed&msg=course_content column not found');
+        header('Location: index.php?error=sync_failed&msg=course_content column not found');
         exit;
     }
 } else {
@@ -78,9 +78,9 @@ if (isset($data['websys_course']) && is_array($data['websys_course']) && count($
     $result = archiveCourses($conn, $data);
     
     if ($result['success']) {
-        header('Location: viewer.php?sync=success');
+        header('Location: index.php?sync=success');
     } else {
-        header('Location: viewer.php?error=sync_failed&msg=' . urlencode($result['message']));
+        header('Location: index.php?error=sync_failed&msg=' . urlencode($result['message']));
     }
 }
 exit;

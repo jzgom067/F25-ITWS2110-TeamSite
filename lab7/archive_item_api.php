@@ -31,28 +31,32 @@ $type = $data['type']; // 'lecture' or 'lab'
 $key = $data['key']; // e.g., 'lecture1', 'lab2'
 $item = $data['item']; // The full item data
 
-$title = isset($item['title']) ? $item['title'] : null;
-$description = isset($item['description']) ? $item['description'] : null;
-$material = isset($item['material']) ? $item['material'] : null;
-$itemJson = json_encode($item);
+try {
+    $title = isset($item['title']) ? $item['title'] : null;
+    $description = isset($item['description']) ? $item['description'] : null;
+    $material = isset($item['material']) ? $item['material'] : null;
+    $itemJson = json_encode($item);
 
-// Insert or update archive entry
-$stmt = $conn->prepare("INSERT INTO archive (type, item_key, title, description, material, data) VALUES (?, ?, ?, ?, ?, ?) 
-                        ON DUPLICATE KEY UPDATE title=VALUES(title), description=VALUES(description), material=VALUES(material), data=VALUES(data), archived_at=CURRENT_TIMESTAMP");
+    // Insert or update archive entry
+    $stmt = $conn->prepare("INSERT INTO archive (type, item_key, title, description, material, data) VALUES (?, ?, ?, ?, ?, ?) 
+                            ON DUPLICATE KEY UPDATE title=VALUES(title), description=VALUES(description), material=VALUES(material), data=VALUES(data), archived_at=CURRENT_TIMESTAMP");
 
-if ($stmt) {
-    $stmt->bind_param("ssssss", $type, $key, $title, $description, $material, $itemJson);
-    
-    if ($stmt->execute()) {
-        $stmt->close();
-        echo json_encode(["success" => true, "message" => "Item archived successfully"]);
+    if ($stmt) {
+        $stmt->bind_param("ssssss", $type, $key, $title, $description, $material, $itemJson);
+        
+        if ($stmt->execute()) {
+            $stmt->close();
+            echo json_encode(["success" => true, "message" => "Item archived successfully"]);
+        } else {
+            $errorMsg = $stmt->error;
+            $stmt->close();
+            echo json_encode(["success" => false, "message" => "Error archiving item: " . $errorMsg]);
+        }
     } else {
-        $errorMsg = $stmt->error;
-        $stmt->close();
-        echo json_encode(["success" => false, "message" => "Error archiving item: " . $errorMsg]);
+        echo json_encode(["success" => false, "message" => "Error preparing statement: " . $conn->error]);
     }
-} else {
-    echo json_encode(["success" => false, "message" => "Error preparing statement: " . $conn->error]);
+} catch (Exception $e) {
+    echo json_encode(["success" => false, "message" => "Exception archiving item: " . $e->getMessage()]);
 }
 ?>
 

@@ -183,11 +183,23 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
     <link rel="stylesheet" href="style.css">
     <script>
         let courseData = null;
+        let archivedItems = new Set();
         let selectedType = '<?php echo htmlspecialchars($selectedType); ?>';
         let selectedKey = '<?php echo htmlspecialchars($selectedKey); ?>';
 
         function loadCourseContent() {
-            fetch('course_content_api.php')
+            // First, load archived items to filter them out
+            fetch('get_archived_api.php')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success && result.archived) {
+                        result.archived.forEach(item => {
+                            archivedItems.add(item.type + ':' + item.item_key);
+                        });
+                    }
+                    // Then load course content
+                    return fetch('course_content_api.php');
+                })
                 .then(response => response.json())
                 .then(result => {
                     if (result.success && result.data && result.data.websys_course && result.data.websys_course.length > 0) {
@@ -215,6 +227,10 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
                 html += '<li><strong>Lectures</strong><ul>';
                 const lectureKeys = Object.keys(courseData.lectures).sort();
                 lectureKeys.forEach(key => {
+                    // Skip if archived
+                    if (archivedItems.has('lecture:' + key)) {
+                        return;
+                    }
                     const lecture = courseData.lectures[key];
                     const isActive = selectedType === 'lecture' && selectedKey === key;
                     html += `<li><a href="?type=lecture&key=${encodeURIComponent(key)}" class="${isActive ? 'active' : ''}">${escapeHtml(lecture.title || key)}</a></li>`;
@@ -227,6 +243,10 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
                 html += '<li><strong>Labs</strong><ul>';
                 const labKeys = Object.keys(courseData.labs).sort();
                 labKeys.forEach(key => {
+                    // Skip if archived
+                    if (archivedItems.has('lab:' + key)) {
+                        return;
+                    }
                     const lab = courseData.labs[key];
                     const isActive = selectedType === 'lab' && selectedKey === key;
                     html += `<li><a href="?type=lab&key=${encodeURIComponent(key)}" class="${isActive ? 'active' : ''}">${escapeHtml(lab.title || key)}</a></li>`;
@@ -303,7 +323,16 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    alert('Item archived successfully!');
+                    // Add to archived set
+                    archivedItems.add(type + ':' + key);
+                    // Re-render navigation to hide the item
+                    renderNavigation();
+                    // Clear preview if this was the selected item
+                    if (selectedType === type && selectedKey === key) {
+                        selectedType = '';
+                        selectedKey = '';
+                        document.getElementById('preview').innerHTML = '<p>Item archived. Select another item from the navigation.</p>';
+                    }
                 } else {
                     alert('Error archiving item: ' + result.message);
                 }

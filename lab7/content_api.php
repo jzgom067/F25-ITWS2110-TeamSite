@@ -10,13 +10,13 @@ if (!isset($conn)) {
 }
 
 // Fetch courses with their JSON content
-$sql = "SELECT crn, prefix, number, title, content FROM courses WHERE content IS NOT NULL";
+$sql = "SELECT crn, prefix, number, title, course_content FROM courses WHERE course_content IS NOT NULL";
 $result = $conn->query($sql);
 
 $courses = [];
 if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
-        $content = json_decode($row['content'], true);
+        $content = json_decode($row['course_content'], true);
         if ($content) {
             $courses[] = [
                 'crn' => $row['crn'],

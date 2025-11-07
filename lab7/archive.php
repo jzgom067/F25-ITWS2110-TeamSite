@@ -13,13 +13,13 @@ function archiveCourses($conn, $data) {
     
     // Check if data has courses array
     if (isset($data['courses']) && is_array($data['courses'])) {
-        // Check if content column exists, if not we'll use basic insert
-        $checkContent = $conn->query("SHOW COLUMNS FROM courses LIKE 'content'");
+        // Check if course_content column exists, if not we'll use basic insert
+        $checkContent = $conn->query("SHOW COLUMNS FROM courses LIKE 'course_content'");
         $hasContent = $checkContent && $checkContent->num_rows > 0;
         
         if ($hasContent) {
-            $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, content) VALUES (?, ?, ?, ?, ?) 
-                                    ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), content=VALUES(content)");
+            $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, course_content) VALUES (?, ?, ?, ?, ?) 
+                                    ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), course_content=VALUES(course_content)");
         } else {
             $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title) VALUES (?, ?, ?, ?) 
                                     ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title)");

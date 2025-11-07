@@ -42,6 +42,9 @@ function archiveData() {
                                     msg += '\nErrors: ' + response.errors.join('\n');
                                 }
                                 showMessage(msg, 'success');
+                                setTimeout(function() {
+                                    window.location.reload();
+                                }, 1500);
                             } else {
                                 showMessage('Error: ' + response.message, 'error');
                             }

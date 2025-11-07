@@ -14,12 +14,12 @@ $previewData = null;
 
 if (isset($conn)) {
     // Fetch courses with their JSON content from database
-    $sql = "SELECT crn, prefix, number, title, content FROM courses WHERE content IS NOT NULL ORDER BY crn";
+    $sql = "SELECT crn, prefix, number, title, course_content FROM courses WHERE course_content IS NOT NULL ORDER BY crn";
     $result = $conn->query($sql);
     
     if ($result && $result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
-            $content = json_decode($row['content'], true);
+            $content = json_decode($row['course_content'], true);
             if ($content) {
                 $courses[] = [
                     'crn' => $row['crn'],

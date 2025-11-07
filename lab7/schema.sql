@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS courses (
     crn INT(11) PRIMARY KEY,
     prefix VARCHAR(4) NOT NULL,
     number SMALLINT(4) NOT NULL,
-    title VARCHAR(255) NOT NULL
+    title VARCHAR(255) NOT NULL,
+    course_content JSON
 );
 
 CREATE TABLE IF NOT EXISTS students (

@@ -89,82 +89,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'reset' && isset($conn)) {
     }
 }
 
-// Auto-import course content from JSON file on page load
+// No auto-import - JSON is only loaded when user clicks "Refresh from JSON"
 $dbError = false;
 $dbErrorMessage = '';
-if (isset($conn)) {
-    try {
-        $jsonFile = 'course_content.json';
-        if (file_exists($jsonFile)) {
-            $jsonData = file_get_contents($jsonFile);
-            $data = json_decode($jsonData, true);
-            
-            if (json_last_error() === JSON_ERROR_NONE && isset($data['websys_course'])) {
-                // Sync websys course to database
-                $websysCourse = $data['websys_course'][0];
-                
-                // Check if ITWS 2110 course exists
-                $checkSql = "SELECT crn FROM courses WHERE prefix = 'ITWS' AND number = 2110 LIMIT 1";
-                $checkResult = $conn->query($checkSql);
-                
-                if ($checkResult === false) {
-                    $dbError = true;
-                    $dbErrorMessage = $conn->error;
-                } else {
-                    $crn = null;
-                    if ($checkResult && $checkResult->num_rows > 0) {
-                        $row = $checkResult->fetch_assoc();
-                        $crn = $row['crn'];
-                    } else {
-                        $crn = 12345; // Default CRN
-                    }
-                    
-                    // Update or insert the course with course_content
-                    $checkContent = $conn->query("SHOW COLUMNS FROM courses LIKE 'course_content'");
-                    if ($checkContent === false) {
-                        $dbError = true;
-                        $dbErrorMessage = $conn->error;
-                    } else {
-                        $hasContent = $checkContent && $checkContent->num_rows > 0;
-                        
-                        if ($hasContent) {
-                            $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, course_content) VALUES (?, ?, ?, ?, ?) 
-                                                    ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), course_content=VALUES(course_content)");
-                            if ($stmt) {
-                                $courseContentJson = json_encode($data);
-                                $title = 'Web Systems Development';
-                                $prefix = 'ITWS';
-                                $number = 2110;
-                                $stmt->bind_param("isiss", $crn, $prefix, $number, $title, $courseContentJson);
-                                if (!$stmt->execute()) {
-                                    $dbError = true;
-                                    $dbErrorMessage = $stmt->error;
-                                }
-                                $stmt->close();
-                            } else {
-                                $dbError = true;
-                                $dbErrorMessage = $conn->error;
-                            }
-                        }
-                    }
-                    
-                    // Also archive any courses/students data if present
-                    if (isset($data['courses']) || isset($data['students'])) {
-                        try {
-                            archiveCourses($conn, $data);
-                        } catch (Exception $e) {
-                            $dbError = true;
-                            $dbErrorMessage = "Error archiving courses: " . $e->getMessage();
-                        }
-                    }
-                }
-            }
-        }
-    } catch (Exception $e) {
-        $dbError = true;
-        $dbErrorMessage = "Exception during auto-import: " . $e->getMessage();
-    }
-}
 
 $selectedType = isset($_GET['type']) ? $_GET['type'] : '';
 $selectedKey = isset($_GET['key']) ? $_GET['key'] : '';
@@ -197,7 +124,7 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
                             archivedItems.add(item.type + ':' + item.item_key);
                         });
                     }
-                    // Then load course content
+                    // Then load course content from database
                     return fetch('course_content_api.php');
                 })
                 .then(response => response.json())
@@ -207,51 +134,70 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
                         renderNavigation();
                         renderPreview();
                     } else {
-                        document.getElementById('contentList').innerHTML = '<li>No course content available.</li>';
+                        // No data available - show empty state
+                        courseData = null;
+                        document.getElementById('contentList').innerHTML = '<li>No course content available. Click "Refresh from JSON" to load content.</li>';
+                        document.getElementById('preview').innerHTML = '<p>No course content available. Click "Refresh from JSON" to load content.</p>';
                     }
                 })
                 .catch(error => {
                     console.error('Error loading course content:', error);
+                    courseData = null;
                     document.getElementById('contentList').innerHTML = '<li>Error loading course content.</li>';
+                    document.getElementById('preview').innerHTML = '<p>Error loading course content.</p>';
                 });
         }
 
+        function refreshFromJSON() {
+            // Submit the form to sync JSON to database
+            const form = document.getElementById('refreshForm');
+            if (form) {
+                form.submit();
+            }
+        }
+
         function renderNavigation() {
-            if (!courseData) return;
+            if (!courseData) {
+                document.getElementById('contentList').innerHTML = '<li>No course content available.</li>';
+                return;
+            }
 
             const contentList = document.getElementById('contentList');
             let html = '';
+            let hasVisibleItems = false;
 
             // Render lectures
             if (courseData.lectures && Object.keys(courseData.lectures).length > 0) {
-                html += '<li><strong>Lectures</strong><ul>';
                 const lectureKeys = Object.keys(courseData.lectures).sort();
-                lectureKeys.forEach(key => {
-                    // Skip if archived
-                    if (archivedItems.has('lecture:' + key)) {
-                        return;
-                    }
-                    const lecture = courseData.lectures[key];
-                    const isActive = selectedType === 'lecture' && selectedKey === key;
-                    html += `<li><a href="?type=lecture&key=${encodeURIComponent(key)}" class="${isActive ? 'active' : ''}">${escapeHtml(lecture.title || key)}</a></li>`;
-                });
-                html += '</ul></li>';
+                const visibleLectures = lectureKeys.filter(key => !archivedItems.has('lecture:' + key));
+                
+                if (visibleLectures.length > 0) {
+                    hasVisibleItems = true;
+                    html += '<li><strong>Lectures</strong><ul>';
+                    visibleLectures.forEach(key => {
+                        const lecture = courseData.lectures[key];
+                        const isActive = selectedType === 'lecture' && selectedKey === key;
+                        html += `<li><a href="?type=lecture&key=${encodeURIComponent(key)}" class="${isActive ? 'active' : ''}">${escapeHtml(lecture.title || key)}</a></li>`;
+                    });
+                    html += '</ul></li>';
+                }
             }
 
             // Render labs
             if (courseData.labs && Object.keys(courseData.labs).length > 0) {
-                html += '<li><strong>Labs</strong><ul>';
                 const labKeys = Object.keys(courseData.labs).sort();
-                labKeys.forEach(key => {
-                    // Skip if archived
-                    if (archivedItems.has('lab:' + key)) {
-                        return;
-                    }
-                    const lab = courseData.labs[key];
-                    const isActive = selectedType === 'lab' && selectedKey === key;
-                    html += `<li><a href="?type=lab&key=${encodeURIComponent(key)}" class="${isActive ? 'active' : ''}">${escapeHtml(lab.title || key)}</a></li>`;
-                });
-                html += '</ul></li>';
+                const visibleLabs = labKeys.filter(key => !archivedItems.has('lab:' + key));
+                
+                if (visibleLabs.length > 0) {
+                    hasVisibleItems = true;
+                    html += '<li><strong>Labs</strong><ul>';
+                    visibleLabs.forEach(key => {
+                        const lab = courseData.labs[key];
+                        const isActive = selectedType === 'lab' && selectedKey === key;
+                        html += `<li><a href="?type=lab&key=${encodeURIComponent(key)}" class="${isActive ? 'active' : ''}">${escapeHtml(lab.title || key)}</a></li>`;
+                    });
+                    html += '</ul></li>';
+                }
             }
 
             contentList.innerHTML = html || '<li>No course content available.</li>';
@@ -291,7 +237,10 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
         }
 
         function archiveItem(type, key) {
-            if (!courseData) return;
+            if (!courseData) {
+                alert('No course data available');
+                return;
+            }
 
             let item = null;
             if (type === 'lecture' && courseData.lectures && courseData.lectures[key]) {
@@ -309,37 +258,59 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
                 return;
             }
 
+            // Prepare the data to send
+            const archiveData = {
+                type: type,
+                key: key,
+                item: item
+            };
+
+            console.log('Archiving item:', archiveData);
+
             fetch('archive_item_api.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    type: type,
-                    key: key,
-                    item: item
-                })
+                body: JSON.stringify(archiveData)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
             .then(result => {
+                console.log('Archive response:', result);
                 if (result.success) {
-                    // Add to archived set
+                    // Add to archived set FIRST
                     archivedItems.add(type + ':' + key);
-                    // Re-render navigation to hide the item
-                    renderNavigation();
+                    console.log('Added to archived set:', type + ':' + key);
+                    console.log('Current archived items:', Array.from(archivedItems));
+                    
                     // Clear preview if this was the selected item
                     if (selectedType === type && selectedKey === key) {
                         selectedType = '';
                         selectedKey = '';
-                        document.getElementById('preview').innerHTML = '<p>Item archived. Select another item from the navigation.</p>';
+                        // Update URL to remove query parameters
+                        const newUrl = window.location.pathname;
+                        window.history.replaceState({}, '', newUrl);
+                        document.getElementById('preview').innerHTML = '<p>Item archived successfully. Select another item from the navigation.</p>';
                     }
+                    
+                    // Re-render navigation to immediately remove the item from menu
+                    renderNavigation();
+                    console.log('Navigation re-rendered after archiving');
+                    
+                    // Show success message
+                    alert('Item archived successfully! It has been removed from the menu.');
                 } else {
-                    alert('Error archiving item: ' + result.message);
+                    alert('Error archiving item: ' + (result.message || 'Unknown error'));
                 }
             })
             .catch(error => {
                 console.error('Error archiving item:', error);
-                alert('Error archiving item. Please try again.');
+                alert('Error archiving item: ' + error.message + '. Please check the console for details.');
             });
         }
 
@@ -350,6 +321,8 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Load content from database (if it exists)
+            // JSON is only imported when user clicks "Refresh from JSON"
             loadCourseContent();
         });
     </script>
@@ -410,16 +383,16 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
     <div class="container">
         <div class="nav-panel">
             <h2>Course Content</h2>
-            <form method="POST" action="sync_api.php" style="display: inline-block; margin-bottom: 15px;" onsubmit="return confirm('Refresh content from JSON file? This will update the database.');">
+            <form id="refreshForm" method="POST" action="sync_api.php" style="display: inline-block; margin-bottom: 15px;" onsubmit="return confirm('Refresh content from JSON file? This will update the database.');">
                 <button type="submit" name="sync">Refresh from JSON</button>
             </form>
             <ul id="contentList">
-                <li>Loading course content...</li>
+                <li>No course content available. Click "Refresh from JSON" to load content.</li>
             </ul>
         </div>
         <div class="preview-panel">
             <div id="preview">
-                <p>Select an item from the navigation to view details.</p>
+                <p>No course content available. Click "Refresh from JSON" to load content.</p>
             </div>
             </div>
         </div>

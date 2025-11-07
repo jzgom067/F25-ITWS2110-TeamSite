@@ -118,57 +118,81 @@ function buildNavigation(courses) {
     }
     
     courses.forEach(function(course) {
+        // Course name
         var courseItem = document.createElement('li');
         var courseTitle = document.createElement('strong');
-        courseTitle.textContent = course.prefix + ' ' + course.number + ': ' + course.title;
+        courseTitle.textContent = course.prefix + course.number + ': ' + course.title;
         courseItem.appendChild(courseTitle);
         
-        var contentList = document.createElement('ul');
+        var courseContentList = document.createElement('ul');
         
         if (course.content) {
-            if (course.content.lectures && Array.isArray(course.content.lectures)) {
+            // Lectures section
+            if (course.content.lectures && Array.isArray(course.content.lectures) && course.content.lectures.length > 0) {
+                var lecturesSection = document.createElement('li');
+                var lecturesHeader = document.createElement('strong');
+                lecturesHeader.textContent = 'Lectures';
+                lecturesSection.appendChild(lecturesHeader);
+                
+                var lecturesList = document.createElement('ul');
                 course.content.lectures.forEach(function(lecture, index) {
-                    var item = createContentItem('Lecture ' + (index + 1), lecture, course.crn, 'lecture', index);
-                    contentList.appendChild(item);
+                    var lectureItem = document.createElement('li');
+                    var lectureLink = document.createElement('a');
+                    lectureLink.href = '#';
+                    lectureLink.textContent = 'Lecture ' + (index + 1);
+                    lectureLink.onclick = function(e) {
+                        e.preventDefault();
+                        showPreview(lecture, 'Lecture ' + (index + 1));
+                    };
+                    lectureItem.appendChild(lectureLink);
+                    lecturesList.appendChild(lectureItem);
                 });
+                
+                lecturesSection.appendChild(lecturesList);
+                courseContentList.appendChild(lecturesSection);
             }
             
-            if (course.content.labs && Array.isArray(course.content.labs)) {
+            // Labs section
+            if (course.content.labs && Array.isArray(course.content.labs) && course.content.labs.length > 0) {
+                var labsSection = document.createElement('li');
+                var labsHeader = document.createElement('strong');
+                labsHeader.textContent = 'Labs';
+                labsSection.appendChild(labsHeader);
+                
+                var labsList = document.createElement('ul');
                 course.content.labs.forEach(function(lab, index) {
-                    var item = createContentItem('Lab ' + (index + 1), lab, course.crn, 'lab', index);
-                    contentList.appendChild(item);
+                    var labItem = document.createElement('li');
+                    var labLink = document.createElement('a');
+                    labLink.href = '#';
+                    labLink.textContent = 'Lab ' + (index + 1);
+                    labLink.onclick = function(e) {
+                        e.preventDefault();
+                        showPreview(lab, 'Lab ' + (index + 1));
+                    };
+                    labItem.appendChild(labLink);
+                    labsList.appendChild(labItem);
                 });
+                
+                labsSection.appendChild(labsList);
+                courseContentList.appendChild(labsSection);
             }
         }
         
-        if (contentList.children.length > 0) {
-            courseItem.appendChild(contentList);
+        if (courseContentList.children.length > 0) {
+            courseItem.appendChild(courseContentList);
         }
         
         list.appendChild(courseItem);
     });
 }
 
-function createContentItem(label, item, crn, type, index) {
-    var li = document.createElement('li');
-    var link = document.createElement('a');
-    link.href = '#';
-    link.textContent = label + (item.title ? ': ' + item.title : '');
-    link.onclick = function(e) {
-        e.preventDefault();
-        showPreview(item, label);
-    };
-    li.appendChild(link);
-    return li;
-}
-
 function showPreview(item, label) {
     var preview = document.getElementById('preview');
-    var html = '<h3>' + label;
+    var html = '<h3>' + label + '</h3>';
+    
     if (item.title) {
-        html += ': ' + item.title;
+        html += '<p><strong>Title:</strong> ' + item.title + '</p>';
     }
-    html += '</h3>';
     
     if (item.description) {
         html += '<p><strong>Description:</strong> ' + item.description + '</p>';

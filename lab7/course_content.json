@@ -1,0 +1,31 @@
+{
+    "courses": [
+        {
+            "crn": 12345,
+            "prefix": "ITWS",
+            "number": 2110,
+            "title": "Web Systems Development",
+            "lectures": [
+                {
+                    "title": "Introduction to Web Development",
+                    "description": "Overview of web technologies, HTML, CSS, and JavaScript basics"
+                },
+                {
+                    "title": "Server-Side Programming",
+                    "description": "Introduction to PHP and server-side scripting"
+                }
+            ],
+            "labs": [
+                {
+                    "title": "Lab 1: HTML Basics",
+                    "description": "Creating basic HTML pages with proper structure"
+                },
+                {
+                    "title": "Lab 2: CSS Styling",
+                    "description": "Applying CSS styles to HTML documents"
+                }
+            ]
+        }
+    ]
+}
+

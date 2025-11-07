@@ -4,8 +4,7 @@ CREATE TABLE IF NOT EXISTS courses (
     crn INT(11) PRIMARY KEY,
     prefix VARCHAR(4) NOT NULL,
     number SMALLINT(4) NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    content TEXT
+    title VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS students (

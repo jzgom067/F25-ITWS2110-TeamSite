@@ -1,49 +1,10 @@
 <?php
-// Course content viewer page - reads from database
-require_once 'db_connect.php';
-
+// Course content viewer page - reads from JSON file via API
 $selectedType = isset($_GET['type']) ? $_GET['type'] : '';
 $selectedKey = isset($_GET['key']) ? $_GET['key'] : '';
 $syncSuccess = isset($_GET['sync']) && $_GET['sync'] === 'success';
 $error = isset($_GET['error']) ? $_GET['error'] : '';
 $errorMsg = isset($_GET['msg']) ? $_GET['msg'] : '';
-
-$courseContent = null;
-$previewData = null;
-$lectures = [];
-$labs = [];
-
-if (isset($conn)) {
-    // Fetch websys course (ITWS 2110) from database
-    $sql = "SELECT course_content FROM courses WHERE prefix = 'ITWS' AND number = 2110 AND course_content IS NOT NULL LIMIT 1";
-    $result = $conn->query($sql);
-    
-    if ($result && $result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        $content = json_decode($row['course_content'], true);
-        
-        if ($content && isset($content['websys_course']) && is_array($content['websys_course']) && count($content['websys_course']) > 0) {
-            $courseContent = $content['websys_course'][0];
-            
-            // Extract lectures and labs (they are objects, not arrays)
-            if (isset($courseContent['lectures']) && (is_array($courseContent['lectures']) || is_object($courseContent['lectures']))) {
-                $lectures = (array)$courseContent['lectures'];
-            }
-            if (isset($courseContent['labs']) && (is_array($courseContent['labs']) || is_object($courseContent['labs']))) {
-                $labs = (array)$courseContent['labs'];
-            }
-            
-            // Get preview data if item is selected
-            if ($selectedType && $selectedKey) {
-                if ($selectedType === 'lecture' && isset($lectures[$selectedKey])) {
-                    $previewData = (array)$lectures[$selectedKey];
-                } elseif ($selectedType === 'lab' && isset($labs[$selectedKey])) {
-                    $previewData = (array)$labs[$selectedKey];
-                }
-            }
-        }
-    }
-}
 ?>
 
 <!DOCTYPE html>
@@ -53,6 +14,102 @@ if (isset($conn)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Course Content Viewer</title>
     <link rel="stylesheet" href="style.css">
+    <script>
+        let courseData = null;
+        let selectedType = '<?php echo htmlspecialchars($selectedType); ?>';
+        let selectedKey = '<?php echo htmlspecialchars($selectedKey); ?>';
+
+        function loadCourseContent() {
+            fetch('course_content_api.php')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success && result.data && result.data.websys_course && result.data.websys_course.length > 0) {
+                        courseData = result.data.websys_course[0];
+                        renderNavigation();
+                        renderPreview();
+                    } else {
+                        document.getElementById('contentList').innerHTML = '<li>No course content available. Click "Refresh from JSON" to load data.</li>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading course content:', error);
+                    document.getElementById('contentList').innerHTML = '<li>Error loading course content.</li>';
+                });
+        }
+
+        function renderNavigation() {
+            if (!courseData) return;
+
+            const contentList = document.getElementById('contentList');
+            let html = '';
+
+            // Render lectures
+            if (courseData.lectures && Object.keys(courseData.lectures).length > 0) {
+                html += '<li><strong>Lectures</strong><ul>';
+                const lectureKeys = Object.keys(courseData.lectures).sort();
+                lectureKeys.forEach(key => {
+                    const lecture = courseData.lectures[key];
+                    const isActive = selectedType === 'lecture' && selectedKey === key;
+                    html += `<li><a href="?type=lecture&key=${encodeURIComponent(key)}" class="${isActive ? 'active' : ''}">${escapeHtml(lecture.title || key)}</a></li>`;
+                });
+                html += '</ul></li>';
+            }
+
+            // Render labs
+            if (courseData.labs && Object.keys(courseData.labs).length > 0) {
+                html += '<li><strong>Labs</strong><ul>';
+                const labKeys = Object.keys(courseData.labs).sort();
+                labKeys.forEach(key => {
+                    const lab = courseData.labs[key];
+                    const isActive = selectedType === 'lab' && selectedKey === key;
+                    html += `<li><a href="?type=lab&key=${encodeURIComponent(key)}" class="${isActive ? 'active' : ''}">${escapeHtml(lab.title || key)}</a></li>`;
+                });
+                html += '</ul></li>';
+            }
+
+            contentList.innerHTML = html || '<li>No course content available.</li>';
+        }
+
+        function renderPreview() {
+            if (!courseData || !selectedType || !selectedKey) {
+                document.getElementById('preview').innerHTML = '<p>Select an item from the navigation to view details.</p>';
+                return;
+            }
+
+            let item = null;
+            if (selectedType === 'lecture' && courseData.lectures && courseData.lectures[selectedKey]) {
+                item = courseData.lectures[selectedKey];
+            } else if (selectedType === 'lab' && courseData.labs && courseData.labs[selectedKey]) {
+                item = courseData.labs[selectedKey];
+            }
+
+            if (item) {
+                let html = '';
+                if (item.title) {
+                    html += `<h3>${escapeHtml(item.title)}</h3>`;
+                }
+                if (item.description) {
+                    html += `<p><strong>Description:</strong> ${escapeHtml(item.description)}</p>`;
+                }
+                if (item.material) {
+                    html += `<p><strong>Material:</strong> ${escapeHtml(item.material)}</p>`;
+                }
+                document.getElementById('preview').innerHTML = html;
+            } else {
+                document.getElementById('preview').innerHTML = '<p>Select an item from the navigation to view details.</p>';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCourseContent();
+        });
+    </script>
 </head>
 <body>
     <div>
@@ -86,78 +143,12 @@ if (isset($conn)) {
                 <button type="submit" name="sync">Refresh from JSON</button>
             </form>
             <ul id="contentList">
-                <?php if (!isset($conn)): ?>
-                    <li>Database connection not found</li>
-                <?php elseif ($courseContent === null): ?>
-                    <li>No course content available. Click "Refresh from JSON" to load data.</li>
-                <?php else: ?>
-                    <?php if (!empty($lectures)): ?>
-                        <li>
-                            <strong>Lectures</strong>
-                            <ul>
-                                <?php 
-                                // Sort lectures by key to maintain order (lecture1, lecture2, etc.)
-                                ksort($lectures);
-                                foreach ($lectures as $key => $lecture): 
-                                    if (is_array($lecture) || is_object($lecture)):
-                                        $lecture = (array)$lecture;
-                                ?>
-                                    <li>
-                                        <a href="?type=lecture&key=<?php echo urlencode($key); ?>" 
-                                           class="<?php echo ($selectedType === 'lecture' && $selectedKey === $key) ? 'active' : ''; ?>">
-                                            <?php echo htmlspecialchars(isset($lecture['title']) ? $lecture['title'] : ucfirst(str_replace('_', ' ', $key))); ?>
-                                        </a>
-                                    </li>
-                                <?php 
-                                    endif;
-                                endforeach; 
-                                ?>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
-                    
-                    <?php if (!empty($labs)): ?>
-                        <li>
-                            <strong>Labs</strong>
-                            <ul>
-                                <?php 
-                                // Sort labs by key to maintain order (lab1, lab2, etc.)
-                                ksort($labs);
-                                foreach ($labs as $key => $lab): 
-                                    if (is_array($lab) || is_object($lab)):
-                                        $lab = (array)$lab;
-                                ?>
-                                    <li>
-                                        <a href="?type=lab&key=<?php echo urlencode($key); ?>" 
-                                           class="<?php echo ($selectedType === 'lab' && $selectedKey === $key) ? 'active' : ''; ?>">
-                                            <?php echo htmlspecialchars(isset($lab['title']) ? $lab['title'] : ucfirst(str_replace('_', ' ', $key))); ?>
-                                        </a>
-                                    </li>
-                                <?php 
-                                    endif;
-                                endforeach; 
-                                ?>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
-                <?php endif; ?>
+                <li>Loading course content...</li>
             </ul>
         </div>
         <div class="preview-panel">
             <div id="preview">
-                <?php if ($previewData): ?>
-                    <?php if (isset($previewData['title'])): ?>
-                        <h3><?php echo htmlspecialchars($previewData['title']); ?></h3>
-                    <?php endif; ?>
-                    <?php if (isset($previewData['description'])): ?>
-                        <p><strong>Description:</strong> <?php echo htmlspecialchars($previewData['description']); ?></p>
-                    <?php endif; ?>
-                    <?php if (isset($previewData['material'])): ?>
-                        <p><strong>Material:</strong> <?php echo htmlspecialchars($previewData['material']); ?></p>
-                    <?php endif; ?>
-                <?php else: ?>
-                    <p>Select an item from the navigation to view details.</p>
-                <?php endif; ?>
+                <p>Select an item from the navigation to view details.</p>
             </div>
         </div>
     </div>

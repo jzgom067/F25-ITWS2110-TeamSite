@@ -4,7 +4,7 @@ require_once 'db_connect.php';
 
 // Function to drop all tables
 function dropTables($conn) {
-    $tables = ['grades', 'courses', 'students'];
+    $tables = ['grades', 'courses', 'students', 'archive'];
     $dropped = [];
     $errors = [];
     
@@ -65,9 +65,6 @@ function recreateTables($conn) {
     <title>Reset Database Tables</title>
     <link rel="stylesheet" href="style.css">
     <script>
-        function confirmDrop() {
-            return confirm('Are you sure you want to drop all tables? This cannot be undone!');
-        }
         function confirmRecreate() {
             return confirm('Are you sure you want to drop and recreate all tables? This will delete all data!');
         }
@@ -77,11 +74,6 @@ function recreateTables($conn) {
     <h1>Database Table Management</h1>
     
     <div class="button-group">
-        <form method="POST" onsubmit="return confirmDrop();">
-            <input type="hidden" name="action" value="drop">
-            <button type="submit">Delete All Tables</button>
-        </form>
-        
         <form method="POST" onsubmit="return confirmRecreate();">
             <input type="hidden" name="action" value="recreate">
             <button type="submit">Reset Tables (Drop & Recreate)</button>
@@ -91,22 +83,13 @@ function recreateTables($conn) {
     <?php
     // Handle form submission
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($conn)) {
-        if (isset($_POST['action'])) {
-            if ($_POST['action'] === 'drop') {
-                $result = dropTables($conn);
-                if ($result['success']) {
-                    echo '<div class="message success">Successfully dropped tables: ' . implode(', ', $result['dropped']) . '</div>';
-                } else {
-                    echo '<div class="message error">Errors: ' . implode('<br>', $result['errors']) . '</div>';
-                }
-            } elseif ($_POST['action'] === 'recreate') {
-                $dropResult = dropTables($conn);
-                $createResult = recreateTables($conn);
-                if ($createResult['success']) {
-                    echo '<div class="message success">Successfully reset all tables!</div>';
-                } else {
-                    echo '<div class="message error">Errors: ' . implode('<br>', $createResult['errors']) . '</div>';
-                }
+        if (isset($_POST['action']) && $_POST['action'] === 'recreate') {
+            $dropResult = dropTables($conn);
+            $createResult = recreateTables($conn);
+            if ($createResult['success']) {
+                echo '<div class="message success">Successfully reset all tables!</div>';
+            } else {
+                echo '<div class="message error">Errors: ' . implode('<br>', $createResult['errors']) . '</div>';
             }
         }
     } elseif (!isset($conn)) {

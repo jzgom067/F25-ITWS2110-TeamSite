@@ -3,7 +3,79 @@
 require_once 'db_connect.php';
 require_once 'archive.php';
 
+// Function to drop all tables
+function dropTables($conn) {
+    $tables = ['grades', 'courses', 'students', 'archive'];
+    $dropped = [];
+    $errors = [];
+    
+    foreach ($tables as $table) {
+        $sql = "DROP TABLE IF EXISTS $table";
+        if ($conn->query($sql) === TRUE) {
+            $dropped[] = $table;
+        } else {
+            $errors[] = "Error dropping table $table: " . $conn->error;
+        }
+    }
+    
+    return [
+        "success" => empty($errors),
+        "dropped" => $dropped,
+        "errors" => $errors
+    ];
+}
+
+// Function to recreate tables from schema
+function recreateTables($conn) {
+    $errors = [];
+    
+    // Read and execute schema.sql
+    $schema = file_get_contents(__DIR__ . '/schema.sql');
+    $queries = array_filter(array_map('trim', explode(';', $schema)));
+    
+    foreach ($queries as $query) {
+        if (!empty($query)) {
+            if ($conn->query($query) === FALSE) {
+                $errors[] = "Error executing schema query: " . $conn->error;
+            }
+        }
+    }
+    
+    // Read and execute init.sql if it exists
+    if (file_exists(__DIR__ . '/init.sql')) {
+        $init = file_get_contents(__DIR__ . '/init.sql');
+        $initQueries = array_filter(array_map('trim', explode(';', $init)));
+        
+        foreach ($initQueries as $query) {
+            if (!empty($query)) {
+                if ($conn->query($query) === FALSE) {
+                    $errors[] = "Error executing init query: " . $conn->error;
+                }
+            }
+        }
+    }
+    
+    return [
+        "success" => empty($errors),
+        "errors" => $errors
+    ];
+}
+
+// Handle reset table action
+$resetSuccess = false;
+$resetError = '';
+if (isset($_POST['action']) && $_POST['action'] === 'reset' && isset($conn)) {
+    $dropResult = dropTables($conn);
+    $createResult = recreateTables($conn);
+    if ($createResult['success']) {
+        $resetSuccess = true;
+    } else {
+        $resetError = implode('<br>', $createResult['errors']);
+    }
+}
+
 // Auto-import course content from JSON file on page load
+$dbError = false;
 if (isset($conn)) {
     $jsonFile = 'course_content.json';
     if (file_exists($jsonFile)) {
@@ -18,35 +90,47 @@ if (isset($conn)) {
             $checkSql = "SELECT crn FROM courses WHERE prefix = 'ITWS' AND number = 2110 LIMIT 1";
             $checkResult = $conn->query($checkSql);
             
-            $crn = null;
-            if ($checkResult && $checkResult->num_rows > 0) {
-                $row = $checkResult->fetch_assoc();
-                $crn = $row['crn'];
+            if ($checkResult === false) {
+                $dbError = true;
             } else {
-                $crn = 12345; // Default CRN
-            }
-            
-            // Update or insert the course with course_content
-            $checkContent = $conn->query("SHOW COLUMNS FROM courses LIKE 'course_content'");
-            $hasContent = $checkContent && $checkContent->num_rows > 0;
-            
-            if ($hasContent) {
-                $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, course_content) VALUES (?, ?, ?, ?, ?) 
-                                        ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), course_content=VALUES(course_content)");
-                if ($stmt) {
-                    $courseContentJson = json_encode($data);
-                    $title = 'Web Systems Development';
-                    $prefix = 'ITWS';
-                    $number = 2110;
-                    $stmt->bind_param("isiss", $crn, $prefix, $number, $title, $courseContentJson);
-                    $stmt->execute();
-                    $stmt->close();
+                $crn = null;
+                if ($checkResult && $checkResult->num_rows > 0) {
+                    $row = $checkResult->fetch_assoc();
+                    $crn = $row['crn'];
+                } else {
+                    $crn = 12345; // Default CRN
                 }
-            }
-            
-            // Also archive any courses/students data if present
-            if (isset($data['courses']) || isset($data['students'])) {
-                archiveCourses($conn, $data);
+                
+                // Update or insert the course with course_content
+                $checkContent = $conn->query("SHOW COLUMNS FROM courses LIKE 'course_content'");
+                if ($checkContent === false) {
+                    $dbError = true;
+                } else {
+                    $hasContent = $checkContent && $checkContent->num_rows > 0;
+                    
+                    if ($hasContent) {
+                        $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, course_content) VALUES (?, ?, ?, ?, ?) 
+                                                ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), course_content=VALUES(course_content)");
+                        if ($stmt) {
+                            $courseContentJson = json_encode($data);
+                            $title = 'Web Systems Development';
+                            $prefix = 'ITWS';
+                            $number = 2110;
+                            $stmt->bind_param("isiss", $crn, $prefix, $number, $title, $courseContentJson);
+                            if (!$stmt->execute()) {
+                                $dbError = true;
+                            }
+                            $stmt->close();
+                        } else {
+                            $dbError = true;
+                        }
+                    }
+                }
+                
+                // Also archive any courses/students data if present
+                if (isset($data['courses']) || isset($data['students'])) {
+                    archiveCourses($conn, $data);
+                }
             }
         }
     }
@@ -57,6 +141,7 @@ $selectedKey = isset($_GET['key']) ? $_GET['key'] : '';
 $syncSuccess = isset($_GET['sync']) && $_GET['sync'] === 'success';
 $error = isset($_GET['error']) ? $_GET['error'] : '';
 $errorMsg = isset($_GET['msg']) ? $_GET['msg'] : '';
+$hasSqlError = $dbError || ($error === 'sync_failed' && (strpos(strtolower($errorMsg), 'sql') !== false || strpos(strtolower($errorMsg), 'table') !== false || strpos(strtolower($errorMsg), 'database') !== false)) || !empty($resetError);
 ?>
 
 <!DOCTYPE html>
@@ -146,10 +231,57 @@ $errorMsg = isset($_GET['msg']) ? $_GET['msg'] : '';
                 if (item.material) {
                     html += `<p><strong>Material:</strong> ${escapeHtml(item.material)}</p>`;
                 }
+                html += `<div style="margin-top: 20px;">
+                    <button onclick="archiveItem('${selectedType}', ${JSON.stringify(selectedKey)})">Archive</button>
+                </div>`;
                 document.getElementById('preview').innerHTML = html;
             } else {
                 document.getElementById('preview').innerHTML = '<p>Select an item from the navigation to view details.</p>';
             }
+        }
+
+        function archiveItem(type, key) {
+            if (!courseData) return;
+
+            let item = null;
+            if (type === 'lecture' && courseData.lectures && courseData.lectures[key]) {
+                item = courseData.lectures[key];
+            } else if (type === 'lab' && courseData.labs && courseData.labs[key]) {
+                item = courseData.labs[key];
+            }
+
+            if (!item) {
+                alert('Item not found');
+                return;
+            }
+
+            if (!confirm('Archive this item?')) {
+                return;
+            }
+
+            fetch('archive_item_api.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: type,
+                    key: key,
+                    item: item
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Item archived successfully!');
+                } else {
+                    alert('Error archiving item: ' + result.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error archiving item:', error);
+                alert('Error archiving item. Please try again.');
+            });
         }
 
         function escapeHtml(text) {
@@ -165,29 +297,38 @@ $errorMsg = isset($_GET['msg']) ? $_GET['msg'] : '';
 </head>
 <body>
     <div class="halloween-header">
-        <div class="halloween-decoration">
-            <img src="images/pumpkin.png" alt="Pumpkin">
-            <img src="images/ghost.png" alt="Ghost">
-            <img src="images/bat.png" alt="Bat">
-        </div>
         <h1>🎃 Spooky Course Content 🎃</h1>
-        <div class="halloween-decoration">
-            <img src="images/spider.png" alt="Spider">
-            <img src="images/ghost.png" alt="Ghost">
-            <img src="images/pumpkin.png" alt="Pumpkin">
-        </div>
     </div>
-    <div>
-        <a href="reset.php">Reset Tables</a>
+    <div style="margin-bottom: 15px;">
+        <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
+            <input type="hidden" name="action" value="reset">
+            <button type="submit">Reset Tables</button>
+        </form>
     </div>
+    <?php if ($resetSuccess): ?>
+        <div class="message success">Successfully reset all tables!</div>
+    <?php endif; ?>
     <?php if ($syncSuccess): ?>
         <div class="message success">Successfully synced JSON file to database!</div>
     <?php endif; ?>
-    <?php if ($error): ?>
+    <?php if ($dbError): ?>
+        <div class="message error">
+            Database Error: <?php echo htmlspecialchars($conn->error); ?>
+            <div style="margin-top: 10px;">
+                <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
+                    <input type="hidden" name="action" value="reset">
+                    <button type="submit">Reset Tables</button>
+                </form>
+            </div>
+        </div>
+    <?php endif; ?>
+    <?php if ($error || $resetError): ?>
         <div class="message error">
             Error: 
             <?php 
-            if ($error === 'db_connection') {
+            if ($resetError) {
+                echo $resetError;
+            } elseif ($error === 'db_connection') {
                 echo 'Database connection not found';
             } elseif ($error === 'file_not_found') {
                 echo 'JSON file not found';
@@ -199,6 +340,14 @@ $errorMsg = isset($_GET['msg']) ? $_GET['msg'] : '';
                 echo 'Unknown error';
             }
             ?>
+            <?php if ($hasSqlError && !$dbError): ?>
+                <div style="margin-top: 10px;">
+                    <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
+                        <input type="hidden" name="action" value="reset">
+                        <button type="submit">Reset Tables</button>
+                    </form>
+                </div>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
     <div class="container">
@@ -215,8 +364,8 @@ $errorMsg = isset($_GET['msg']) ? $_GET['msg'] : '';
             <div id="preview">
                 <p>Select an item from the navigation to view details.</p>
             </div>
+            </div>
         </div>
-    </div>
 </body>
 </html>
 

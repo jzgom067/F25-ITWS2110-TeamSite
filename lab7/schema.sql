@@ -17,3 +17,15 @@ CREATE TABLE IF NOT EXISTS students (
     phone INT(10)
 );
 
+CREATE TABLE IF NOT EXISTS archive (
+    id INT(11) AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(20) NOT NULL,
+    item_key VARCHAR(100) NOT NULL,
+    title VARCHAR(255),
+    description TEXT,
+    material TEXT,
+    data JSON,
+    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_archive (type, item_key)
+);
+

@@ -9,13 +9,17 @@ function dropTables($conn) {
     $dropped = [];
     $errors = [];
     
-    foreach ($tables as $table) {
-        $sql = "DROP TABLE IF EXISTS $table";
-        if ($conn->query($sql) === TRUE) {
-            $dropped[] = $table;
-        } else {
-            $errors[] = "Error dropping table $table: " . $conn->error;
+    try {
+        foreach ($tables as $table) {
+            $sql = "DROP TABLE IF EXISTS $table";
+            if ($conn->query($sql) === TRUE) {
+                $dropped[] = $table;
+            } else {
+                $errors[] = "Error dropping table $table: " . $conn->error;
+            }
         }
+    } catch (Exception $e) {
+        $errors[] = "Exception dropping tables: " . $e->getMessage();
     }
     
     return [
@@ -29,30 +33,34 @@ function dropTables($conn) {
 function recreateTables($conn) {
     $errors = [];
     
-    // Read and execute schema.sql
-    $schema = file_get_contents(__DIR__ . '/schema.sql');
-    $queries = array_filter(array_map('trim', explode(';', $schema)));
-    
-    foreach ($queries as $query) {
-        if (!empty($query)) {
-            if ($conn->query($query) === FALSE) {
-                $errors[] = "Error executing schema query: " . $conn->error;
-            }
-        }
-    }
-    
-    // Read and execute init.sql if it exists
-    if (file_exists(__DIR__ . '/init.sql')) {
-        $init = file_get_contents(__DIR__ . '/init.sql');
-        $initQueries = array_filter(array_map('trim', explode(';', $init)));
+    try {
+        // Read and execute schema.sql
+        $schema = file_get_contents(__DIR__ . '/schema.sql');
+        $queries = array_filter(array_map('trim', explode(';', $schema)));
         
-        foreach ($initQueries as $query) {
+        foreach ($queries as $query) {
             if (!empty($query)) {
                 if ($conn->query($query) === FALSE) {
-                    $errors[] = "Error executing init query: " . $conn->error;
+                    $errors[] = "Error executing schema query: " . $conn->error;
                 }
             }
         }
+        
+        // Read and execute init.sql if it exists
+        if (file_exists(__DIR__ . '/init.sql')) {
+            $init = file_get_contents(__DIR__ . '/init.sql');
+            $initQueries = array_filter(array_map('trim', explode(';', $init)));
+            
+            foreach ($initQueries as $query) {
+                if (!empty($query)) {
+                    if ($conn->query($query) === FALSE) {
+                        $errors[] = "Error executing init query: " . $conn->error;
+                    }
+                }
+            }
+        }
+    } catch (Exception $e) {
+        $errors[] = "Exception recreating tables: " . $e->getMessage();
     }
     
     return [
@@ -64,75 +72,97 @@ function recreateTables($conn) {
 // Handle reset table action
 $resetSuccess = false;
 $resetError = '';
+$resetDbError = false;
 if (isset($_POST['action']) && $_POST['action'] === 'reset' && isset($conn)) {
-    $dropResult = dropTables($conn);
-    $createResult = recreateTables($conn);
-    if ($createResult['success']) {
-        $resetSuccess = true;
-    } else {
-        $resetError = implode('<br>', $createResult['errors']);
+    try {
+        $dropResult = dropTables($conn);
+        $createResult = recreateTables($conn);
+        if ($createResult['success']) {
+            $resetSuccess = true;
+        } else {
+            $resetError = implode('<br>', $createResult['errors']);
+            $resetDbError = true;
+        }
+    } catch (Exception $e) {
+        $resetError = "Exception during reset: " . $e->getMessage();
+        $resetDbError = true;
     }
 }
 
 // Auto-import course content from JSON file on page load
 $dbError = false;
+$dbErrorMessage = '';
 if (isset($conn)) {
-    $jsonFile = 'course_content.json';
-    if (file_exists($jsonFile)) {
-        $jsonData = file_get_contents($jsonFile);
-        $data = json_decode($jsonData, true);
-        
-        if (json_last_error() === JSON_ERROR_NONE && isset($data['websys_course'])) {
-            // Sync websys course to database
-            $websysCourse = $data['websys_course'][0];
+    try {
+        $jsonFile = 'course_content.json';
+        if (file_exists($jsonFile)) {
+            $jsonData = file_get_contents($jsonFile);
+            $data = json_decode($jsonData, true);
             
-            // Check if ITWS 2110 course exists
-            $checkSql = "SELECT crn FROM courses WHERE prefix = 'ITWS' AND number = 2110 LIMIT 1";
-            $checkResult = $conn->query($checkSql);
-            
-            if ($checkResult === false) {
-                $dbError = true;
-            } else {
-                $crn = null;
-                if ($checkResult && $checkResult->num_rows > 0) {
-                    $row = $checkResult->fetch_assoc();
-                    $crn = $row['crn'];
-                } else {
-                    $crn = 12345; // Default CRN
-                }
+            if (json_last_error() === JSON_ERROR_NONE && isset($data['websys_course'])) {
+                // Sync websys course to database
+                $websysCourse = $data['websys_course'][0];
                 
-                // Update or insert the course with course_content
-                $checkContent = $conn->query("SHOW COLUMNS FROM courses LIKE 'course_content'");
-                if ($checkContent === false) {
+                // Check if ITWS 2110 course exists
+                $checkSql = "SELECT crn FROM courses WHERE prefix = 'ITWS' AND number = 2110 LIMIT 1";
+                $checkResult = $conn->query($checkSql);
+                
+                if ($checkResult === false) {
                     $dbError = true;
+                    $dbErrorMessage = $conn->error;
                 } else {
-                    $hasContent = $checkContent && $checkContent->num_rows > 0;
+                    $crn = null;
+                    if ($checkResult && $checkResult->num_rows > 0) {
+                        $row = $checkResult->fetch_assoc();
+                        $crn = $row['crn'];
+                    } else {
+                        $crn = 12345; // Default CRN
+                    }
                     
-                    if ($hasContent) {
-                        $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, course_content) VALUES (?, ?, ?, ?, ?) 
-                                                ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), course_content=VALUES(course_content)");
-                        if ($stmt) {
-                            $courseContentJson = json_encode($data);
-                            $title = 'Web Systems Development';
-                            $prefix = 'ITWS';
-                            $number = 2110;
-                            $stmt->bind_param("isiss", $crn, $prefix, $number, $title, $courseContentJson);
-                            if (!$stmt->execute()) {
+                    // Update or insert the course with course_content
+                    $checkContent = $conn->query("SHOW COLUMNS FROM courses LIKE 'course_content'");
+                    if ($checkContent === false) {
+                        $dbError = true;
+                        $dbErrorMessage = $conn->error;
+                    } else {
+                        $hasContent = $checkContent && $checkContent->num_rows > 0;
+                        
+                        if ($hasContent) {
+                            $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, course_content) VALUES (?, ?, ?, ?, ?) 
+                                                    ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), course_content=VALUES(course_content)");
+                            if ($stmt) {
+                                $courseContentJson = json_encode($data);
+                                $title = 'Web Systems Development';
+                                $prefix = 'ITWS';
+                                $number = 2110;
+                                $stmt->bind_param("isiss", $crn, $prefix, $number, $title, $courseContentJson);
+                                if (!$stmt->execute()) {
+                                    $dbError = true;
+                                    $dbErrorMessage = $stmt->error;
+                                }
+                                $stmt->close();
+                            } else {
                                 $dbError = true;
+                                $dbErrorMessage = $conn->error;
                             }
-                            $stmt->close();
-                        } else {
+                        }
+                    }
+                    
+                    // Also archive any courses/students data if present
+                    if (isset($data['courses']) || isset($data['students'])) {
+                        try {
+                            archiveCourses($conn, $data);
+                        } catch (Exception $e) {
                             $dbError = true;
+                            $dbErrorMessage = "Error archiving courses: " . $e->getMessage();
                         }
                     }
                 }
-                
-                // Also archive any courses/students data if present
-                if (isset($data['courses']) || isset($data['students'])) {
-                    archiveCourses($conn, $data);
-                }
             }
         }
+    } catch (Exception $e) {
+        $dbError = true;
+        $dbErrorMessage = "Exception during auto-import: " . $e->getMessage();
     }
 }
 
@@ -141,7 +171,7 @@ $selectedKey = isset($_GET['key']) ? $_GET['key'] : '';
 $syncSuccess = isset($_GET['sync']) && $_GET['sync'] === 'success';
 $error = isset($_GET['error']) ? $_GET['error'] : '';
 $errorMsg = isset($_GET['msg']) ? $_GET['msg'] : '';
-$hasSqlError = $dbError || ($error === 'sync_failed' && (strpos(strtolower($errorMsg), 'sql') !== false || strpos(strtolower($errorMsg), 'table') !== false || strpos(strtolower($errorMsg), 'database') !== false)) || !empty($resetError);
+$hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos(strtolower($errorMsg), 'sql') !== false || strpos(strtolower($errorMsg), 'table') !== false || strpos(strtolower($errorMsg), 'database') !== false)) || !empty($resetError);
 ?>
 
 <!DOCTYPE html>
@@ -313,7 +343,7 @@ $hasSqlError = $dbError || ($error === 'sync_failed' && (strpos(strtolower($erro
     <?php endif; ?>
     <?php if ($dbError): ?>
         <div class="message error">
-            Database Error: <?php echo htmlspecialchars($conn->error); ?>
+            Database Error: <?php echo htmlspecialchars($dbErrorMessage ? $dbErrorMessage : (isset($conn) ? $conn->error : 'Unknown database error')); ?>
             <div style="margin-top: 10px;">
                 <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
                     <input type="hidden" name="action" value="reset">

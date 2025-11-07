@@ -1,6 +1,6 @@
 <?php
 // Reset/Delete tables page
-// Assumes $conn is a mysqli connection object
+require_once 'db_connect.php';
 
 // Function to drop all tables
 function dropTables($conn) {
@@ -43,10 +43,6 @@ function recreateTables($conn) {
         "errors" => $errors
     ];
 }
-
-// Note: Include your database connection file before this file
-// Example: require_once 'your_connection_file.php';
-// The connection should be available as $conn
 ?>
 
 <!DOCTYPE html>

@@ -1,9 +1,6 @@
 <?php
 // API endpoint for archiving course data via AJAX
-// Note: Include your database connection file before this file
-// Example: require_once 'your_connection_file.php';
-// The connection should be available as $conn
-
+require_once 'db_connect.php';
 require_once 'archive.php';
 
 header('Content-Type: application/json');

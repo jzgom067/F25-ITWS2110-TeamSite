@@ -1,8 +1,6 @@
 <?php
 // API endpoint for fetching course content
-// Note: Include your database connection file before this file
-// Example: require_once 'your_connection_file.php';
-// The connection should be available as $conn
+require_once 'db_connect.php';
 
 header('Content-Type: application/json');
 

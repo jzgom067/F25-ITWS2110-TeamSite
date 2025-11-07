@@ -1,8 +1,6 @@
 <?php
 // Course content viewer page - reads from database
-// Note: Include your database connection file before this file
-// Example: require_once 'your_connection_file.php';
-// The connection should be available as $conn
+require_once 'db_connect.php';
 
 $selectedType = isset($_GET['type']) ? $_GET['type'] : '';
 $selectedIndex = isset($_GET['index']) ? intval($_GET['index']) : -1;

@@ -1,9 +1,6 @@
 <?php
 // API endpoint to sync JSON file to database
-// Note: Include your database connection file before this file
-// Example: require_once 'your_connection_file.php';
-// The connection should be available as $conn
-
+require_once 'db_connect.php';
 require_once 'archive.php';
 
 if (!isset($conn)) {

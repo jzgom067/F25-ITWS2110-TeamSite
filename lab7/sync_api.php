@@ -57,15 +57,25 @@ if (isset($data['websys_course']) && is_array($data['websys_course']) && count($
     if ($hasContent) {
         $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, course_content) VALUES (?, ?, ?, ?, ?) 
                                 ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), course_content=VALUES(course_content)");
-        $courseContentJson = json_encode($data);
-        $stmt->bind_param("isiss", $courseData['crn'], $courseData['prefix'], $courseData['number'], $courseData['title'], $courseContentJson);
-        
-        if ($stmt->execute()) {
-            $stmt->close();
-            header('Location: index.php?sync=success');
-            exit;
+        if ($stmt) {
+            $courseContentJson = json_encode($data);
+            $crn = $courseData['crn'];
+            $prefix = $courseData['prefix'];
+            $number = $courseData['number'];
+            $title = $courseData['title'];
+            $stmt->bind_param("isiss", $crn, $prefix, $number, $title, $courseContentJson);
+            
+            if ($stmt->execute()) {
+                $stmt->close();
+                header('Location: index.php?sync=success');
+                exit;
+            } else {
+                $errorMsg = $stmt->error;
+                $stmt->close();
+                header('Location: index.php?error=sync_failed&msg=' . urlencode($errorMsg));
+                exit;
+            }
         } else {
-            $stmt->close();
             header('Location: index.php?error=sync_failed&msg=' . urlencode($conn->error));
             exit;
         }

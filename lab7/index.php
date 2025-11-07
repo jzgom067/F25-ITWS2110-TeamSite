@@ -33,11 +33,15 @@ if (isset($conn)) {
             if ($hasContent) {
                 $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, course_content) VALUES (?, ?, ?, ?, ?) 
                                         ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), course_content=VALUES(course_content)");
-                $courseContentJson = json_encode($data);
-                $title = 'Web Systems Development';
-                $stmt->bind_param("isiss", $crn, 'ITWS', 2110, $title, $courseContentJson);
-                $stmt->execute();
-                $stmt->close();
+                if ($stmt) {
+                    $courseContentJson = json_encode($data);
+                    $title = 'Web Systems Development';
+                    $prefix = 'ITWS';
+                    $number = 2110;
+                    $stmt->bind_param("isiss", $crn, $prefix, $number, $title, $courseContentJson);
+                    $stmt->execute();
+                    $stmt->close();
+                }
             }
             
             // Also archive any courses/students data if present

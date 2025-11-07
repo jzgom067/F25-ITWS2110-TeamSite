@@ -4,7 +4,7 @@ require_once 'db_connect.php';
 
 // Function to drop all tables
 function dropTables($conn) {
-    $tables = ['courses', 'students'];
+    $tables = ['grades', 'courses', 'students'];
     $dropped = [];
     $errors = [];
     
@@ -27,6 +27,18 @@ function dropTables($conn) {
 // Function to recreate tables from schema
 function recreateTables($conn) {
     $schema = file_get_contents(__DIR__ . '/schema.sql');
+    $queries = array_filter(array_map('trim', explode(';', $schema)));
+    $errors = [];
+    
+    foreach ($queries as $query) {
+        if (!empty($query)) {
+            if ($conn->query($query) === FALSE) {
+                $errors[] = "Error executing query: " . $conn->error;
+            }
+        }
+    }
+    
+    $schema = file_get_contents(__DIR__ . '/init.sql');
     $queries = array_filter(array_map('trim', explode(';', $schema)));
     $errors = [];
     

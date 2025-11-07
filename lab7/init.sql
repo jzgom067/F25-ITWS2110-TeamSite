@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS grades (
     crn INT(11) NOT NULL,
     RIN INT(9) NOT NULL,
     grade INT(3) NOT NULL,
-    FOREIGN KEY (crn) REFERENCES courses(crn),
-    FOREIGN KEY (RIN) REFERENCES students(RIN)
+    FOREIGN KEY (crn) REFERENCES courses(crn) ON DELETE CASCADE,
+    FOREIGN KEY (RIN) REFERENCES students(RIN) ON DELETE CASCADE
 );
 
 -- 4. Insert at least 4 courses
@@ -31,10 +31,10 @@ INSERT INTO courses (crn, prefix, number, title, section, year) VALUES
 
 -- 5. Insert at least 4 students
 INSERT INTO students (RIN, RCSID, first_name, last_name, alias, phone, street, city, state, zip) VALUES
-(123456789, 'doej', 'John', 'Doe', 'jdoe', 5185551234, '123 Main St', 'Troy', 'NY', '12180'),
-(234567890, 'smithj', 'Jane', 'Smith', 'jsmith', 5185552345, '456 Oak Ave', 'Albany', 'NY', '12201'),
-(345678901, 'brownm', 'Mike', 'Brown', 'mbrown', 5185553456, '789 Pine Rd', 'Schenectady', 'NY', '12345'),
-(456789012, 'wilsons', 'Sarah', 'Wilson', 'swilson', 5185554567, '321 Elm St', 'Troy', 'NY', '12180');
+(123456789, 'doej', 'John', 'Doe', 'jdoe', 1185551234, '123 Main St', 'Troy', 'NY', '12180'),
+(234567890, 'smithj', 'Jane', 'Smith', 'jsmith', 1185552345, '456 Oak Ave', 'Albany', 'NY', '12201'),
+(345678901, 'brownm', 'Mike', 'Brown', 'mbrown', 1185553456, '789 Pine Rd', 'Schenectady', 'NY', '12345'),
+(456789012, 'wilsons', 'Sarah', 'Wilson', 'swilson', 1185554567, '321 Elm St', 'Troy', 'NY', '12180');
 
 -- 6. Add 10 grades
 INSERT INTO grades (crn, RIN, grade) VALUES

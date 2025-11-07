@@ -340,14 +340,12 @@ $hasSqlError = $dbError || ($error === 'sync_failed' && (strpos(strtolower($erro
                 echo 'Unknown error';
             }
             ?>
-            <?php if ($hasSqlError && !$dbError): ?>
-                <div style="margin-top: 10px;">
-                    <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
-                        <input type="hidden" name="action" value="reset">
-                        <button type="submit">Reset Tables</button>
-                    </form>
-                </div>
-            <?php endif; ?>
+            <div style="margin-top: 10px;">
+                <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
+                    <input type="hidden" name="action" value="reset">
+                    <button type="submit">Reset Tables</button>
+                </form>
+            </div>
         </div>
     <?php endif; ?>
     <div class="container">

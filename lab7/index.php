@@ -110,46 +110,6 @@ if (isset($conn)) {
             <?php endif; ?>
         </div>
     </div>
-        
-        <div>
-            <strong>Expected JSON Format:</strong>
-            <div class="example">
-{
-    "courses": [
-        {
-            "crn": 12345,
-            "prefix": "ITWS",
-            "number": 2110,
-            "title": "Web Systems Development",
-            "lectures": [
-                {
-                    "title": "Introduction to Web Development",
-                    "description": "Overview of web technologies",
-                    "material": "Slides and examples"
-                }
-            ],
-            "labs": [
-                {
-                    "title": "Lab 1: HTML Basics",
-                    "description": "Creating basic HTML pages",
-                    "material": "Lab instructions and starter code"
-                }
-            ]
-        }
-    ],
-    "students": [
-        {
-            "RIN": 123456789,
-            "RCSID": "doej",
-            "first_name": "John",
-            "last_name": "Doe",
-            "alias": "jdoe",
-            "phone": 5185551234
-        }
-    ]
-}
-            </div>
-        </div>
 </body>
 </html>
 

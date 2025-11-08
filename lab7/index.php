@@ -228,7 +228,7 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
                     html += `<p><strong>Material:</strong> ${escapeHtml(item.material)}</p>`;
                 }
                 html += `<div style="margin-top: 20px;">
-                    <button onclick="archiveItem('${selectedType}', ${JSON.stringify(selectedKey)})">Archive</button>
+                    <button onclick="archiveItem('${selectedType}', '${selectedKey}')">Archive</button>
                 </div>`;
                 document.getElementById('preview').innerHTML = html;
             } else {

@@ -43,6 +43,23 @@ a:hover { color: #ff4500; }
     border-color: #8b0000;
     color: #ff6b6b;
 }
+.message.error.db-error-banner {
+    font-size: 1.1em;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-width: 3px;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
+}
+.message.error.db-error-banner code {
+    background-color: #3a1a1a;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #ff8c00;
+    font-weight: bold;
+}
+.message.error.db-error-banner ol {
+    text-align: left;
+}
 .example { font-family: monospace; white-space: pre; }
 .button-group { margin: 10px 0; }
 

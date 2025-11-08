@@ -3,6 +3,10 @@
 require_once 'db_connect.php';
 require_once 'archive.php';
 
+// Check for database connection error
+$hasDbConnectionError = isset($_SESSION['db_error']) || $conn === null;
+$dbConnectionErrorMsg = isset($_SESSION['db_error']) ? $_SESSION['db_error'] : 'Database connection unavailable';
+
 // Function to drop all tables
 function dropTables($conn) {
     $tables = ['grades', 'courses', 'students', 'archive'];
@@ -331,6 +335,14 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
     <div class="halloween-header">
         <h1>🎃 Spooky Course Content 🎃</h1>
     </div>
+    
+    <?php if ($hasDbConnectionError): ?>
+        <div class="message error db-error-banner">
+            <strong>Database Connection Error</strong><br>
+            <?php echo htmlspecialchars($dbConnectionErrorMsg); ?>
+        </div>
+    <?php endif; ?>
+    
     <div style="margin-bottom: 15px;">
         <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
             <input type="hidden" name="action" value="reset">

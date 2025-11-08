@@ -73,6 +73,82 @@ function recreateTables($conn) {
     ];
 }
 
+// Function to sync JSON data to database
+function syncJSONToDatabase($conn) {
+    $errors = [];
+    
+    try {
+        $jsonFile = __DIR__ . '/course_content.json';
+        
+        if (!file_exists($jsonFile)) {
+            return [
+                "success" => false,
+                "errors" => ["JSON file not found"]
+            ];
+        }
+        
+        $jsonData = file_get_contents($jsonFile);
+        $data = json_decode($jsonData, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return [
+                "success" => false,
+                "errors" => ["Error parsing JSON: " . json_last_error_msg()]
+            ];
+        }
+        
+        // Clear the archive table to un-archive all items on sync
+        $conn->query("TRUNCATE TABLE archive");
+        
+        // Convert websys_course structure to courses format
+        if (isset($data['websys_course']) && is_array($data['websys_course']) && count($data['websys_course']) > 0) {
+            // Check if ITWS 2110 course exists
+            $checkSql = "SELECT crn FROM courses WHERE prefix = 'ITWS' AND number = 2110 LIMIT 1";
+            $checkResult = $conn->query($checkSql);
+            
+            $crn = null;
+            if ($checkResult && $checkResult->num_rows > 0) {
+                $row = $checkResult->fetch_assoc();
+                $crn = $row['crn'];
+            } else {
+                $crn = 12345; // Default CRN
+            }
+            
+            // Update or insert the course with course_content
+            $checkContent = $conn->query("SHOW COLUMNS FROM courses LIKE 'course_content'");
+            $hasContent = $checkContent && $checkContent->num_rows > 0;
+            
+            if ($hasContent) {
+                $stmt = $conn->prepare("INSERT INTO courses (crn, prefix, number, title, course_content) VALUES (?, ?, ?, ?, ?) 
+                                        ON DUPLICATE KEY UPDATE prefix=VALUES(prefix), number=VALUES(number), title=VALUES(title), course_content=VALUES(course_content)");
+                if ($stmt) {
+                    $courseContentJson = json_encode($data);
+                    $prefix = 'ITWS';
+                    $number = 2110;
+                    $title = 'Web Systems Development';
+                    $stmt->bind_param("isiss", $crn, $prefix, $number, $title, $courseContentJson);
+                    
+                    if (!$stmt->execute()) {
+                        $errors[] = "Error syncing JSON: " . $stmt->error;
+                    }
+                    $stmt->close();
+                } else {
+                    $errors[] = "Error preparing statement: " . $conn->error;
+                }
+            } else {
+                $errors[] = "course_content column not found";
+            }
+        }
+    } catch (Exception $e) {
+        $errors[] = "Exception syncing JSON: " . $e->getMessage();
+    }
+    
+    return [
+        "success" => empty($errors),
+        "errors" => $errors
+    ];
+}
+
 // Handle reset table action
 $resetSuccess = false;
 $resetError = '';
@@ -82,7 +158,14 @@ if (isset($_POST['action']) && $_POST['action'] === 'reset' && isset($conn)) {
         $dropResult = dropTables($conn);
         $createResult = recreateTables($conn);
         if ($createResult['success']) {
-            $resetSuccess = true;
+            // After successfully recreating tables, sync JSON data
+            $syncResult = syncJSONToDatabase($conn);
+            if ($syncResult['success']) {
+                $resetSuccess = true;
+            } else {
+                $resetError = 'Tables reset successfully, but failed to sync JSON:<br>' . implode('<br>', $syncResult['errors']);
+                $resetDbError = true;
+            }
         } else {
             $resetError = implode('<br>', $createResult['errors']);
             $resetDbError = true;
@@ -344,13 +427,13 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
     <?php endif; ?>
     
     <div style="margin-bottom: 15px;">
-        <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
+        <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables and reload JSON content? This will drop and recreate all tables, deleting all data!');">
             <input type="hidden" name="action" value="reset">
             <button type="submit">Reset Tables</button>
         </form>
     </div>
     <?php if ($resetSuccess): ?>
-        <div class="message success">Successfully reset all tables!</div>
+        <div class="message success">Successfully reset all tables and loaded course content from JSON!</div>
     <?php endif; ?>
     <?php if ($syncSuccess): ?>
         <div class="message success">Successfully synced JSON file to database!</div>
@@ -359,7 +442,7 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
         <div class="message error">
             Database Error: <?php echo htmlspecialchars($dbErrorMessage ? $dbErrorMessage : (isset($conn) ? $conn->error : 'Unknown database error')); ?>
             <div style="margin-top: 10px;">
-                <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
+                <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables and reload JSON content? This will drop and recreate all tables, deleting all data!');">
                     <input type="hidden" name="action" value="reset">
                     <button type="submit">Reset Tables</button>
                 </form>
@@ -385,7 +468,7 @@ $hasSqlError = $dbError || $resetDbError || ($error === 'sync_failed' && (strpos
             }
             ?>
             <div style="margin-top: 10px;">
-                <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables? This will drop and recreate all tables, deleting all data!');">
+                <form method="POST" style="display: inline-block;" onsubmit="return confirm('Reset all database tables and reload JSON content? This will drop and recreate all tables, deleting all data!');">
                     <input type="hidden" name="action" value="reset">
                     <button type="submit">Reset Tables</button>
                 </form>

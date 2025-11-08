@@ -23,6 +23,9 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
+// Clear the archive table to un-archive all items on sync
+$conn->query("TRUNCATE TABLE archive");
+
 // Convert websys_course structure to courses format for archiving
 if (isset($data['websys_course']) && is_array($data['websys_course']) && count($data['websys_course']) > 0) {
     // Find or create ITWS 2110 course entry
